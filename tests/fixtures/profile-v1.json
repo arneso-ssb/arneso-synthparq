@@ -1,0 +1,13 @@
+{
+  "format_version": 1,
+  "producer": {"name": "arneso-synthparq", "version": "0.0.0.dev1"},
+  "row_count": 6,
+  "export_settings": {"k": 5, "significant_digits": 3},
+  "columns": [
+    {"name": "id", "type": "int32", "nullable": false, "role": "schema_only"},
+    {"name": "amount", "type": "decimal128(12, 2)", "nullable": true, "role": "schema_only"}
+  ],
+  "primary_key": ["id"],
+  "mappings": [],
+  "timeseries": null
+}

@@ -1,0 +1,16 @@
+{
+  "k": 5,
+  "significant_digits": 3,
+  "max_key_size": 5,
+  "mapping_max_distinct": 10000,
+  "timeseries": "auto",
+  "force_code": [],
+  "columns": {
+    "period": "code",
+    "entity": "pattern",
+    "entity_name": "pattern",
+    "series": "code",
+    "kind": "code",
+    "amount": "numeric_stats"
+  }
+}

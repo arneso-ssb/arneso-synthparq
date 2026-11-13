@@ -1,0 +1,25 @@
+{
+  "_commit": "9bcf1a4225d41ff99ff3f048568165f38b525daa",
+  "_copy_without_render": [
+    "*.rst_t"
+  ],
+  "_jinja2_env_vars": {
+    "lstrip_blocks": true,
+    "trim_blocks": true
+  },
+  "_template": "https://github.com/statisticsnorway/ssb-pypitemplate.git",
+  "author": "Arne S\u00f8rli",
+  "code_quality_level": "Medium",
+  "copyright_owner": "Statistics Norway",
+  "copyright_year": "2026",
+  "department_number": "703",
+  "dependency_manager_tool": "uv",
+  "development_status": "Development Status :: 4 - Beta",
+  "email": "arne.sorli@ssb.no",
+  "friendly_name": "Arneso SynthParq",
+  "github_organization": "arneso-ssb",
+  "license": "MIT",
+  "package_name": "synthparq",
+  "project_name": "arneso-synthparq",
+  "version": "0.0.0"
+}

@@ -1,0 +1,185 @@
+{
+  "format_version": 1,
+  "producer": {
+    "name": "arneso-synthparq",
+    "version": "0.0.0"
+  },
+  "row_count": 48,
+  "export_settings": {
+    "k": 5,
+    "significant_digits": 3
+  },
+  "columns": [
+    {
+      "name": "period",
+      "type": "string",
+      "nullable": false,
+      "role": "code",
+      "stats": {
+        "null_fraction": 0.0,
+        "values": [
+          {
+            "value": "202501",
+            "count": 8
+          },
+          {
+            "value": "202502",
+            "count": 8
+          },
+          {
+            "value": "202503",
+            "count": 8
+          },
+          {
+            "value": "202504",
+            "count": 8
+          },
+          {
+            "value": "202505",
+            "count": 8
+          },
+          {
+            "value": "202506",
+            "count": 8
+          }
+        ],
+        "suppressed_fraction": 0.0
+      }
+    },
+    {
+      "name": "entity",
+      "type": "string",
+      "nullable": false,
+      "role": "pattern",
+      "stats": {
+        "null_fraction": 0.0,
+        "min_length": 8,
+        "max_length": 8,
+        "character_classes": [
+          "digit",
+          "upper"
+        ],
+        "distinct_count": 4
+      }
+    },
+    {
+      "name": "entity_name",
+      "type": "string",
+      "nullable": false,
+      "role": "pattern",
+      "stats": {
+        "null_fraction": 0.0,
+        "min_length": 18,
+        "max_length": 18,
+        "character_classes": [
+          "digit",
+          "lower",
+          "space",
+          "upper"
+        ],
+        "distinct_count": 4
+      }
+    },
+    {
+      "name": "series",
+      "type": "string",
+      "nullable": false,
+      "role": "code",
+      "stats": {
+        "null_fraction": 0.0,
+        "values": [
+          {
+            "value": "DEPOSITS",
+            "count": 24
+          },
+          {
+            "value": "LOANS",
+            "count": 24
+          }
+        ],
+        "suppressed_fraction": 0.0
+      }
+    },
+    {
+      "name": "kind",
+      "type": "string",
+      "nullable": false,
+      "role": "code",
+      "stats": {
+        "null_fraction": 0.0,
+        "values": [
+          {
+            "value": "ASSET",
+            "count": 24
+          },
+          {
+            "value": "LIABILITY",
+            "count": 24
+          }
+        ],
+        "suppressed_fraction": 0.0
+      }
+    },
+    {
+      "name": "amount",
+      "type": "decimal128(12, 2)",
+      "nullable": false,
+      "role": "numeric_stats",
+      "stats": {
+        "null_fraction": 0.0,
+        "min": 105.0,
+        "max": 430.0,
+        "mean": 268.0,
+        "std": 112.0,
+        "distinct_count": 24,
+        "histogram": {
+          "edges": [
+            105.0,
+            138.0,
+            235.0,
+            332.0,
+            430.0
+          ],
+          "fractions": [
+            0.25,
+            0.25,
+            0.25,
+            0.25
+          ]
+        }
+      }
+    }
+  ],
+  "primary_key": [
+    "period",
+    "entity",
+    "series"
+  ],
+  "mappings": [
+    {
+      "from": "entity",
+      "to": "entity_name",
+      "kind": "1:1"
+    },
+    {
+      "from": "series",
+      "to": "kind",
+      "kind": "1:1"
+    }
+  ],
+  "timeseries": {
+    "period": "period",
+    "period_format": "YYYYMM",
+    "frequency": "M",
+    "start": "202501",
+    "end": "202506",
+    "series_keys": [
+      "entity",
+      "series"
+    ],
+    "values": [
+      "amount"
+    ],
+    "n_series": 8
+  }
+}
