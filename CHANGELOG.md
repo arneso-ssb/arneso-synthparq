@@ -2,6 +2,8 @@
 
 ## Unreleased — target 0.1.0 beta
 
+- Install the project non-editably in Nox sessions so normal tests exercise the
+  installed package, and remove the separate installed-wheel CI job.
 - Rename the `code` column role to `category` and `force_code` to `force_category`.
   This is a breaking prototype revision with no aliases; profile format remains 1.
 - Add a domain glossary and complete JSON field reference with independent/AI

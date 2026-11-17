@@ -33,6 +33,20 @@ version from the current tool. Compatibility is determined by profile format, no
 
 ## Repeat
 
+Nox sessions install the project non-editably using `uv sync --locked --no-editable`.
+Sessions that install the project also use `--reinstall-package arneso-synthparq`
+to rebuild it rather than testing a stale cached wheel after source changes.
+The normal `tests` session also clears pytest's configured `src` path, so it tests
+the installed package rather than the checkout. CI uses this session across its
+Python/OS matrix; there is no separate installed-wheel job. Run it locally with:
+
+```console
+nox -s tests -p 3.13
+```
+
+The commands below are additional development checks. `scripts/verify_wheel.py`
+remains available as a manual runtime-only CLI and wheel-content check.
+
 ```console
 uv sync --locked
 uv run coverage run --parallel -m pytest -o pythonpath=
