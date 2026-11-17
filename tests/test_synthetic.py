@@ -27,6 +27,87 @@ SERIES = {"LOAN_A": "L", "LOAN_B": "L", "DEPOSIT_A": "D"}
 PERIODS = ["202501", "202502", "202503", "202504", "202505", "202506"]
 
 
+@pytest.mark.parametrize("representation", ["compact", "hyphenated", "integer"])
+@pytest.mark.parametrize("explicit", [False, True])
+def test_quarter_end_months_round_trip(
+    tmp_path: Path, representation: str, explicit: bool
+) -> None:
+    periods: list[Any] = ["202412", "202503", "202506", "202509"]
+    if representation == "hyphenated":
+        periods = [f"{p[:4]}-{p[4:]}" for p in periods]
+    elif representation == "integer":
+        periods = [int(p) for p in periods]
+    source = tmp_path / "source.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "period": periods * 2,
+                "entity": ["A"] * 4 + ["B"] * 4,
+                "amount": [float(i) for i in range(8)],
+            }
+        ),
+        source,
+    )
+    config = _write_config(
+        tmp_path / "config.json",
+        {"period": "code", "entity": "pattern", "amount": "numeric_stats"},
+        k=1,
+        timeseries=(
+            {"period": "period", "series_keys": ["entity"], "values": ["amount"]}
+            if explicit
+            else "auto"
+        ),
+    )
+    profile_file = profile_parquet(source, tmp_path / "profile.json", config)
+    profile = json.loads(profile_file.read_text())
+    assert profile["timeseries"]["frequency"] == "Q"
+    assert profile["timeseries"]["period_format"] == (
+        "YYYY-MM" if representation == "hyphenated" else "YYYYMM"
+    )
+    output = generate_parquet(
+        profile_file, tmp_path / "output.parquet", seed=42, n_rows=9
+    )
+    table = pq.read_table(output)
+    assert table.schema == pq.read_schema(source)
+    assert table.num_rows == 12
+    rows = table.to_pydict()
+    for entity in set(rows["entity"]):
+        assert [
+            p
+            for p, e in zip(rows["period"], rows["entity"], strict=True)
+            if e == entity
+        ] == periods
+
+
+@pytest.mark.parametrize(
+    "periods",
+    [
+        ["202501", "202502", "202503"],
+        ["202503", "202504", "202506"],
+        ["202503"],
+        ["202501", "202503"],
+        ["202403", "202503"],
+        ["202503", "202509"],
+    ],
+)
+def test_monthly_periods_are_not_misclassified(
+    tmp_path: Path, periods: list[str]
+) -> None:
+    source = tmp_path / "source.parquet"
+    pq.write_table(
+        pa.table({"period": periods, "amount": [1.0] * len(periods)}), source
+    )
+    config = _write_config(
+        tmp_path / "config.json",
+        {"period": "schema_only", "amount": "schema_only"},
+        timeseries={"period": "period", "series_keys": [], "values": ["amount"]},
+    )
+    profile = json.loads(
+        profile_parquet(source, tmp_path / "profile.json", config).read_text()
+    )
+    assert profile["timeseries"]["frequency"] == "M"
+
+
 def _timeseries_table() -> pa.Table:
     rows: dict[str, list[Any]] = {
         name: []

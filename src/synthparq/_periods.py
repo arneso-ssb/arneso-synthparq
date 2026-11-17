@@ -1,7 +1,9 @@
 """Recognise, format and expand supported regular calendar periods."""
 
+import math
 import re
 from datetime import date
+from itertools import pairwise
 from typing import Any
 
 import pandas as pd
@@ -60,6 +62,21 @@ def _format_period(period: pd.Period, period_format: str) -> str:
     return f"{year}{separator}{period.month:02d}{separator}{period.day:02d}"
 
 
+def _infer_frequency(periods: list[pd.Period], period_format: str) -> str:
+    frequency = _PERIOD_FORMATS[period_format][1]
+    if frequency == "M":
+        unique = sorted(set(periods))
+        gaps = [b.ordinal - a.ordinal for a, b in pairwise(unique)]
+        # Allow missing quarters, but do not infer quarterly from annual-only data.
+        if (
+            gaps
+            and all(period.month % 3 == 0 for period in unique)
+            and math.gcd(*gaps) == 3
+        ):
+            return "Q"
+    return frequency
+
+
 def _native_period(value: Any, frequency: str) -> pd.Period:
     timestamp = pd.Timestamp(value)
     if timestamp.tzinfo is not None:
@@ -72,8 +89,10 @@ def _period_range(timeseries: dict[str, Any], value_type: pa.DataType) -> list[A
     frequency: str = timeseries["frequency"]
     if period_format != _NATIVE_PERIOD and period_format not in _PERIOD_FORMATS:
         raise ValueError("Unsupported period format in profile")
+    quarterly_months = period_format in ("YYYYMM", "YYYY-MM") and frequency == "Q"
     if (
         period_format != _NATIVE_PERIOD
+        and not quarterly_months
         and frequency != _PERIOD_FORMATS[period_format][1]
     ):
         raise ValueError("Period format and frequency disagree")
@@ -86,8 +105,12 @@ def _period_range(timeseries: dict[str, Any], value_type: pa.DataType) -> list[A
         if parsed_start is None or parsed_end is None:
             raise ValueError("Invalid period range in profile")
         start, end = parsed_start, parsed_end
+        if quarterly_months and (start.month % 3 or end.month % 3):
+            raise ValueError("Quarterly month labels must use quarter-end months")
     values: list[Any] = []
-    for period in pd.period_range(start=start, end=end, freq=frequency):
+    for period in pd.period_range(
+        start=start, end=end, freq="3M" if quarterly_months else frequency
+    ):
         if period_format == _NATIVE_PERIOD:
             start_time = period.start_time.to_pydatetime()
             if pa.types.is_timestamp(value_type) and value_type.tz:

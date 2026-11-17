@@ -357,10 +357,15 @@ def test_subdaily_timestamps_are_not_silently_truncated(tmp_path: Path) -> None:
     assert profile["timeseries"] is None
 
 
-def test_regular_periods_cannot_invent_unapproved_codes(tmp_path: Path) -> None:
+@pytest.mark.parametrize(
+    "periods", [["202501", "202503"], ["202503", "202506", "202512"]]
+)
+def test_regular_periods_cannot_invent_unapproved_codes(
+    tmp_path: Path, periods: list[str]
+) -> None:
     source = tmp_path / "source.parquet"
     pq.write_table(
-        pa.table({"period": ["202501", "202503"], "amount": [1.0, 2.0]}), source
+        pa.table({"period": periods, "amount": [1.0] * len(periods)}), source
     )
     config = tmp_path / "export.json"
     config.write_text(

@@ -19,6 +19,13 @@ and unsupported format versions are rejected with an actionable error. Compatibl
 versions may differ between production and test. Fixture tests cover profiles from earlier
 prototype/tool versions; keep those fixtures when changing the implementation.
 
+For `timeseries`, `period_format` describes the labels, while `frequency` describes
+the cadence. `YYYYMM` and `YYYY-MM` support both monthly (`M`) and quarterly (`Q`)
+frequency. Quarterly month labels use quarter-end months, preserving their string
+or integer representation. Older readers may reject this format/frequency combination;
+use an updated SynthParq on both sides. Existing profiles are not re-inferred during
+generation: regenerate them to detect quarterly month labels.
+
 ## Type strings
 
 Supported scalar types:

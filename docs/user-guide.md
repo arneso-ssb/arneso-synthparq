@@ -186,6 +186,15 @@ and which have numeric measurements. Supported text/integer periods include `202
 (years 1800–2200). Dates and midnight timestamps are also recognised; subdaily
 timestamps are not converted into daily series.
 
+For `YYYYMM` (text or integer) and `YYYY-MM`, detection checks the observed months,
+not just the label format. Quarter-end months (March, June, September and December)
+with a quarterly cadence are exported with frequency `Q`; generation retains the
+original month labels, such as `202503`, `202506`, `202509`, `202512`. At least two
+distinct periods are needed, and the greatest common divisor of their month gaps
+must be three. Missing quarters are allowed, but annual-only or semiannual-only
+observations are not enough to infer quarterly frequency. Other month-labelled data
+remains monthly. Regenerate older profiles to update their detected frequency.
+
 For explicit roles:
 
 ```json

@@ -38,6 +38,7 @@ from synthparq._files import check_output
 from synthparq._periods import _NATIVE_PERIOD
 from synthparq._periods import _PERIOD_FORMATS
 from synthparq._periods import _format_period
+from synthparq._periods import _infer_frequency
 from synthparq._periods import _native_period
 from synthparq._periods import _parse_period
 from synthparq._periods import _period_range
@@ -674,9 +675,9 @@ def _detect_timeseries(
         start = min(periods).start_time.date().isoformat()
         end = max(periods).start_time.date().isoformat()
     else:
-        frequency = _PERIOD_FORMATS[period_format][1]
         parsed = [_parse_period(str(value), period_format) for value in set(raw)]
         periods = [p for p in parsed if p is not None]
+        frequency = _infer_frequency(periods, period_format)
         start = _format_period(min(periods), period_format)
         end = _format_period(max(periods), period_format)
 
