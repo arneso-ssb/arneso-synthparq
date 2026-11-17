@@ -28,7 +28,7 @@ synthparq profile data.parquet --init-config export.json
 ```
 
 Edit `export.json` **before** profiling. Every column starts as `schema_only`.
-Use `pattern` for fake IDs/names, `code` only for approved public values, and
+Use `pattern` for fake IDs/names, `category` only for approved values, and
 `numeric_stats` for approved numeric summaries.
 
 ```console
@@ -64,6 +64,9 @@ tuples, telemetry, or network lookup is included by the tool. Runtime commands u
 
 - [Operator guide](docs/user-guide.md): production-to-test steps, settings, troubleshooting.
 - [Profile format and compatibility](docs/profile-format.md).
+- [JSON field reference and independent/AI generation guide](docs/json-reference.md):
+  read when creating configurations, interpreting profiles, or building a generator from them.
+- [Domain glossary](GLOSSARY.md).
 - [Release checklist](docs/releasing.md).
 - [Local verification results](docs/verification.md).
 - [Fabricated example](examples/README.md): reproducible source, config and profile with no

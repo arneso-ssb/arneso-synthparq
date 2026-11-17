@@ -3,6 +3,14 @@
 Profiles are UTF-8 JSON objects, format version **1**. They contain no encoded Arrow schema
 or arbitrary source metadata. Unsupported types fail instead of being guessed.
 
+For every field in both configuration and profile files, nested statistics, scalar
+encodings and independent/AI generation rules, read the [JSON reference](json-reference.md).
+
+**Prototype rename:** the role is now `category` and the configuration setting is
+`force_category`. The former names `code` and `force_code` are rejected, without
+changing `format_version: 1`. Regenerate older files or edit these tokens explicitly;
+this prototype revision does not provide compatibility aliases.
+
 | Field | Meaning |
 | --- | --- |
 | `format_version` | Version of the profile contract, independent of tool version |
@@ -18,6 +26,13 @@ or arbitrary source metadata. Unsupported types fail instead of being guessed.
 and unsupported format versions are rejected with an actionable error. Compatible producer
 versions may differ between production and test. Fixture tests cover profiles from earlier
 prototype/tool versions; keep those fixtures when changing the implementation.
+
+For `timeseries`, `period_format` describes the labels, while `frequency` describes
+the cadence. `YYYYMM` and `YYYY-MM` support both monthly (`M`) and quarterly (`Q`)
+frequency. Quarterly month labels use quarter-end months, preserving their string
+or integer representation. Older readers may reject this format/frequency combination;
+use an updated SynthParq on both sides. Existing profiles are not re-inferred during
+generation: regenerate them to detect quarterly month labels.
 
 ## Type strings
 
@@ -40,7 +55,8 @@ are not reconstructed.
 ## Evolution policy
 
 - Use semantic versioning for the tool; document changes in `CHANGELOG.md`.
-- Preserve supported version-1 readers across compatible releases.
+- Preserve supported version-1 readers across compatible releases; the explicit
+  prototype rename above is a breaking pre-release revision, not a compatible release.
 - Introduce a new profile version or explicit required feature for incompatible semantics.
 - Do not infer compatibility by comparing producer-version strings.
 - Reproducibility requires the same tool/dependency environment, not just the same format version.

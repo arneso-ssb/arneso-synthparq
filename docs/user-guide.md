@@ -80,36 +80,39 @@ Someone with domain knowledge must edit `export.json`:
 | --- | --- | --- |
 | `schema_only` | Name, type and nullability only | Type-based placeholders |
 | `pattern` | Null share, length range, character classes, rounded distinct count | Fake strings; not original names/IDs |
-| `code` | Null share, approved values occurring at least `k` times, rounded counts and suppressed share | Samples only the approved values |
+| `category` | Null share, approved values occurring at least `k` times, rounded counts and suppressed share | Samples only the approved values |
 | `numeric_stats` | Null share; rounded min/max, mean/std, distinct count and coarse histogram | Samples the histogram; supports Decimal |
 
 Example excerpt (keep the surrounding settings written by `--init-config`):
 
 ```json
 "columns": {
-  "period": "code",
+  "period": "category",
   "entity": "pattern",
   "entity_name": "pattern",
-  "series": "code",
+  "series": "category",
   "amount": "numeric_stats"
 }
 ```
 
-Never mark private names or identifiers as `code` just to make the synthetic data look
+Never mark private names or identifiers as `category` just to make the synthetic data look
 realistic. A format pattern can itself be disclosive; leave the role `schema_only` if unsure.
+
+For complete field definitions, the exact `k` threshold rules and independent/AI
+generation from a profile, read the [JSON reference](json-reference.md).
 
 ### Settings
 
 | Setting | Default | Purpose |
 | --- | --- | --- |
-| `k` | `5` | Export a code only if it occurs at least this often. Merge numeric bins with fewer rows; suppress numeric summaries if fewer than `k` finite observations exist. |
+| `k` | `5` | Export a category value only if it occurs in at least this many source rows. Merge numeric bins with fewer rows; suppress numeric summaries if fewer than `k` finite observations exist. |
 | `significant_digits` | `3` | Round counts and statistics: 18,078 becomes 18,100; 0.012345 becomes 0.0123. Not decimal places. Valid range: 1–15. |
 | `max_key_size` | `5` | Search candidate keys of 1–5 columns. Smaller limits are faster. |
 | `mapping_max_distinct` | `10000` | Skip relationship detection for columns above this distinct-count limit. |
 | `timeseries` | `"auto"` | Detect and export period metadata. Use `"none"` to disable, or an explicit role object below. |
-| `force_code` | `[]` | Bypass the identifier-like check only for named, reviewed `code` columns. Does not bypass `k`. |
+| `force_category` | `[]` | Bypass the identifier-like check only for named, reviewed `category` columns. Does not bypass `k`. |
 
-A `code` column is identifier-like when more than half of its non-null observations
+A `category` column is identifier-like when more than half of its non-null observations
 are distinct. Unknown config settings, invalid ranges, or unknown columns fail before
 reading data rows. Missing columns default to `schema_only` with a warning.
 
@@ -141,10 +144,10 @@ functional dependencies, but a small sample can contain fewer categories than th
 
 ## 4. Review and approve before transfer
 
-Check **all** profile fields, not just code lists:
+Check **all** profile fields, not just category values:
 
 - Column names/types and relationships are approved to disclose.
-- No real private names or identifiers were mistakenly authorised as codes.
+- No real private names or identifiers were mistakenly authorised as category values.
 - Numeric extrema and summary values do not expose outliers or individual units.
 - Pattern lengths, null shares, distinct counts and the row count are acceptable.
 - Period start/end, frequency and series count are acceptable.
@@ -186,6 +189,15 @@ and which have numeric measurements. Supported text/integer periods include `202
 (years 1800–2200). Dates and midnight timestamps are also recognised; subdaily
 timestamps are not converted into daily series.
 
+For `YYYYMM` (text or integer) and `YYYY-MM`, detection checks the observed months,
+not just the label format. Quarter-end months (March, June, September and December)
+with a quarterly cadence are exported with frequency `Q`; generation retains the
+original month labels, such as `202503`, `202506`, `202509`, `202512`. At least two
+distinct periods are needed, and the greatest common divisor of their month gaps
+must be three. Missing quarters are allowed, but annual-only or semiannual-only
+observations are not enough to infer quarterly frequency. Other month-labelled data
+remains monthly. Regenerate older profiles to update their detected frequency.
+
 For explicit roles:
 
 ```json
@@ -196,14 +208,14 @@ For explicit roles:
 }
 ```
 
-The period column does not need the `code` role. Detection exports its start/end and
+The period column does not need the `category` role. Detection exports its start/end and
 frequency independently of that role. Every generated series spans the complete regular
 range. Requested rows round up to a multiple of the number of periods. A dataset without
 series keys can contain only one series.
 
-If the period column is `code`, every generated period must also be in its approved code
+If the period column is `category`, every generated period must also be in its approved category
 list. Gaps or suppressed periods can therefore cause a clear error instead of silently
-inventing codes. Review the period role (often `schema_only` is sufficient for time-series
+inventing category values. Review the period role (often `schema_only` is sufficient for time-series
 generation) or disable time-series handling.
 
 Each measurement starts with a histogram sample, then follows a multiplicative random
@@ -234,8 +246,8 @@ even with overwrite enabled.
 | --- | --- |
 | Output already exists | Choose another path or intentionally use `--overwrite`. |
 | Config column is unknown | Check spelling and schema drift. |
-| Identifier-like code column | Prefer `pattern`; use `force_code` only after review. |
-| Code column has no approved values | All codes were suppressed. Review its role or `k`; values will not be invented. |
+| Identifier-like category column | Prefer `pattern`; use `force_category` only after review. |
+| Category column has no approved values | All category values were suppressed. Review its role or `k`; values will not be invented. |
 | Insufficient unique key capacity | Request fewer rows or review the permitted key domains. |
 | Cannot satisfy mappings/keys | Review overlapping constraints and roles. The generator is conservative, not a general constraint solver. |
 | Unsupported format/features | Use a tool version that supports this profile. Producer versions need not match. |

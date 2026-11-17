@@ -38,6 +38,7 @@ from synthparq._files import check_output
 from synthparq._periods import _NATIVE_PERIOD
 from synthparq._periods import _PERIOD_FORMATS
 from synthparq._periods import _format_period
+from synthparq._periods import _infer_frequency
 from synthparq._periods import _native_period
 from synthparq._periods import _parse_period
 from synthparq._periods import _period_range
@@ -55,7 +56,7 @@ from synthparq._validation import profile_shape
 from synthparq._validation import read_json
 
 FORMAT_VERSION = 1
-ROLES = ("schema_only", "pattern", "code", "numeric_stats")
+ROLES = ("schema_only", "pattern", "category", "numeric_stats")
 HISTOGRAM_BINS = 10
 ID_LIKE_RATIO = 0.5
 RANDOM_WALK_STEP = 0.05
@@ -65,7 +66,7 @@ _DEFAULT_CONFIG: dict[str, Any] = {
     "max_key_size": 5,
     "mapping_max_distinct": 10_000,
     "timeseries": "auto",
-    "force_code": [],
+    "force_category": [],
 }
 _PERIOD_NAME_HINTS = (
     "period",
@@ -219,7 +220,7 @@ def generate_parquet(
             and not 0 <= value_type.scale <= value_type.precision
         ):
             raise ValueError("Parquet Decimal scale must be between zero and precision")
-        if column["role"] == "code":
+        if column["role"] == "category":
             try:
                 values = [
                     _from_json(item["value"], value_type)
@@ -227,10 +228,10 @@ def generate_parquet(
                 ]
                 _to_arrow(values, string_to_type(column["type"]))
                 if len(set(values)) != len(values):
-                    raise ValueError("Duplicate codes")
+                    raise ValueError("Duplicate category values")
             except (ValueError, TypeError, ArithmeticError, pa.ArrowException):
                 raise ValueError(
-                    "Invalid or duplicate code values for the declared column type"
+                    "Invalid or duplicate category values for the declared column type"
                 ) from None
     generator = _Generator(profile, np.random.default_rng(seed))
     names = [column["name"] for column in profile["columns"]]
@@ -345,9 +346,11 @@ def _load_config(config_file: Path | None, schema: pa.Schema) -> dict[str, Any]:
             raise ValueError(f"Column {field.name!r} is not numeric")
         if role == "pattern" and not _is_string(value_type):
             raise ValueError(f"Column {field.name!r} is not a string column")
-    unknown_forced = set(config["force_code"]) - set(schema.names)
+    unknown_forced = set(config["force_category"]) - set(schema.names)
     if unknown_forced:
-        raise ValueError(f"force_code lists unknown columns: {sorted(unknown_forced)}")
+        raise ValueError(
+            f"force_category lists unknown columns: {sorted(unknown_forced)}"
+        )
     timeseries = config["timeseries"]
     if not (timeseries in ("auto", "none") or isinstance(timeseries, dict)):
         raise ValueError("timeseries must be 'auto', 'none' or an object")
@@ -393,8 +396,10 @@ def _column_stats(
     non_null = [value for value in values if value is not None]
     null_fraction = 1 - len(non_null) / len(values) if values else 0.0
     stats: dict[str, Any] = {"null_fraction": _round_sig(null_fraction, digits)}
-    if role == "code":
-        stats.update(_code_stats(name, non_null, k, digits, config["force_code"]))
+    if role == "category":
+        stats.update(
+            _category_stats(name, non_null, k, digits, config["force_category"])
+        )
     elif role == "numeric_stats":
         stats.update(_numeric_stats(non_null, k, digits))
     elif role == "pattern":
@@ -402,14 +407,14 @@ def _column_stats(
     return stats
 
 
-def _code_stats(
+def _category_stats(
     name: str, non_null: list[Any], k: int, digits: int, forced: Sequence[str]
 ) -> dict[str, Any]:
     counts = Counter(non_null)
     if non_null and len(counts) > ID_LIKE_RATIO * len(non_null) and name not in forced:
         raise ValueError(
             f"Column {name!r} looks like an identifier. Use role 'pattern', or list it in "
-            "'force_code' if its values are not sensitive."
+            "'force_category' if its values are not sensitive."
         )
     kept = sorted(
         ((value, count) for value, count in counts.items() if count >= k),
@@ -674,9 +679,9 @@ def _detect_timeseries(
         start = min(periods).start_time.date().isoformat()
         end = max(periods).start_time.date().isoformat()
     else:
-        frequency = _PERIOD_FORMATS[period_format][1]
         parsed = [_parse_period(str(value), period_format) for value in set(raw)]
         periods = [p for p in parsed if p is not None]
+        frequency = _infer_frequency(periods, period_format)
         start = _format_period(min(periods), period_format)
         end = _format_period(max(periods), period_format)
 
@@ -761,20 +766,20 @@ class _Generator:
     def _has_histogram(self, name: str) -> bool:
         return "histogram" in self._stats(name)
 
-    def _code_values(self, name: str) -> list[dict[str, Any]]:
-        if self.columns[name]["role"] != "code":
+    def _category_values(self, name: str) -> list[dict[str, Any]]:
+        if self.columns[name]["role"] != "category":
             return []
         values: list[dict[str, Any]] = self._stats(name).get("values", [])
         return values
 
     def natural_size(self, name: str, fallback: int) -> int:
-        if code_values := self._code_values(name):
-            return len(code_values)
+        if category_values := self._category_values(name):
+            return len(category_values)
         distinct = self._stats(name).get("distinct_count")
         return max(1, int(distinct) if distinct else fallback)
 
     def is_extensible(self, name: str) -> bool:
-        return not self._code_values(name)
+        return not self._category_values(name)
 
     def domain(self, name: str, size: int) -> list[Any]:
         if name not in self._domains:
@@ -783,11 +788,11 @@ class _Generator:
 
     def _make_domain(self, name: str, size: int) -> list[Any]:
         value_type = self.value_type(name)
-        if code_values := self._code_values(name):
-            return [_from_json(item["value"], value_type) for item in code_values]
-        if self.columns[name]["role"] == "code":
+        if category_values := self._category_values(name):
+            return [_from_json(item["value"], value_type) for item in category_values]
+        if self.columns[name]["role"] == "category":
             raise ValueError(
-                "A code column has no approved values after suppression; change its role or review k"
+                "A category column has no approved values after suppression; change its role or review k"
             )
         if self._has_histogram(name):
             values: list[Any] = []
@@ -869,9 +874,9 @@ class _Generator:
         }
 
     def sample(self, name: str, n: int) -> list[Any]:
-        if code_values := self._code_values(name):
-            weights = np.array([item["count"] for item in code_values], dtype=float)
-            domain = self.domain(name, len(code_values))
+        if category_values := self._category_values(name):
+            weights = np.array([item["count"] for item in category_values], dtype=float)
+            domain = self.domain(name, len(category_values))
             indices = self.rng.choice(len(domain), n, p=weights / weights.sum())
             values = [domain[index] for index in indices]
         elif self._has_histogram(name):

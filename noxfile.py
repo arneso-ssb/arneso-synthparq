@@ -35,8 +35,11 @@ def install_with_uv(
     all_extras: bool = False,
     locked: bool = True,
 ) -> None:
-    """Install packages using uv, pinned to uv.lock."""
-    cmd = ["uv", "sync"]
+    """Install non-editable packages using uv, pinned to uv.lock."""
+    cmd = ["uv", "sync", "--no-editable"]
+    if not only_groups:
+        # Rebuild the project so a cached wheel cannot hide source changes.
+        cmd.extend(["--reinstall-package", "arneso-synthparq"])
     if locked:
         cmd.append("--locked")
     if no_dev:

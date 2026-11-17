@@ -73,7 +73,7 @@ def config_shape(config: dict[str, Any], allowed: list[str]) -> None:
     integer(config["mapping_max_distinct"], "mapping_max_distinct", 1)
     if not isinstance(config["columns"], dict):
         raise ValueError("columns must be an object mapping column names to roles")
-    names(config["force_code"], "force_code", allowed)
+    names(config["force_category"], "force_category", allowed)
     setting = config["timeseries"]
     if isinstance(setting, str) and setting in ("auto", "none"):
         return
@@ -130,7 +130,7 @@ def profile_shape(
         if pa.types.is_dictionary(data_type):
             data_type = data_type.value_type
         role = column.get("role")
-        if role not in ("schema_only", "pattern", "code", "numeric_stats"):
+        if role not in ("schema_only", "pattern", "category", "numeric_stats"):
             raise ValueError("Invalid profile column role")
         if role == "pattern" and not (
             pa.types.is_string(data_type) or pa.types.is_large_string(data_type)
@@ -180,7 +180,7 @@ def profile_shape(
                 "max_key_size": 5,
                 "mapping_max_distinct": 1,
                 "columns": {},
-                "force_code": [],
+                "force_category": [],
                 "timeseries": {
                     key: timeseries[key] for key in ("period", "series_keys", "values")
                 },
@@ -212,18 +212,18 @@ def _stats_shape(stats: dict[str, Any], role: str) -> None:
     number(stats.get("null_fraction", 0), "null_fraction", 0, 1)
     if "distinct_count" in stats:
         integer(stats["distinct_count"], "distinct_count", 0)
-    if role == "code":
+    if role == "category":
         values = stats.get("values")
         if not isinstance(values, list):
-            raise ValueError("Code statistics require a values list")
+            raise ValueError("Category statistics require a values list")
         for item in values:
             if (
                 not isinstance(item, dict)
                 or set(item) != {"value", "count"}
                 or item["value"] is None
             ):
-                raise ValueError("Invalid code value entry")
-            integer(item["count"], "code count", 1)
+                raise ValueError("Invalid category value entry")
+            integer(item["count"], "category count", 1)
         number(stats.get("suppressed_fraction", 0), "suppressed_fraction", 0, 1)
     if role == "pattern" and "min_length" in stats:
         integer(stats["min_length"], "min_length", 0)

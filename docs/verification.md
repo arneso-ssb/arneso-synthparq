@@ -26,12 +26,26 @@ The 80 tests cover the public API/CLI, schema-only template creation, column rol
 automatic dataset-level metadata (including the deliberate period-column exception),
 mapping direction and overlapping dependencies, key capacity, Decimal boundaries,
 timezone preservation, deterministic generation, input validation, protected/atomic outputs,
-code-domain enforcement and runtime operation without network connections.
+category-domain enforcement and runtime operation without network connections.
 
 The fixed `tests/fixtures/profile-v1.json` compatibility fixture has a different producer
 version from the current tool. Compatibility is determined by profile format, not producer version.
 
 ## Repeat
+
+Nox sessions install the project non-editably using `uv sync --locked --no-editable`.
+Sessions that install the project also use `--reinstall-package arneso-synthparq`
+to rebuild it rather than testing a stale cached wheel after source changes.
+The normal `tests` session also clears pytest's configured `src` path, so it tests
+the installed package rather than the checkout. CI uses this session across its
+Python/OS matrix; there is no separate installed-wheel job. Run it locally with:
+
+```console
+nox -s tests -p 3.13
+```
+
+The commands below are additional development checks. `scripts/verify_wheel.py`
+remains available as a manual runtime-only CLI and wheel-content check.
 
 ```console
 uv sync --locked

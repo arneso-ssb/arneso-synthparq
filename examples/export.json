@@ -4,13 +4,13 @@
   "max_key_size": 5,
   "mapping_max_distinct": 10000,
   "timeseries": "auto",
-  "force_code": [],
+  "force_category": [],
   "columns": {
-    "period": "code",
+    "period": "category",
     "entity": "pattern",
     "entity_name": "pattern",
-    "series": "code",
-    "kind": "code",
+    "series": "category",
+    "kind": "category",
     "amount": "numeric_stats"
   }
 }

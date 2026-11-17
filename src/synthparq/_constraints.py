@@ -12,7 +12,7 @@ from synthparq._types import string_to_type
 
 def reconcile(data: dict[str, list[Any]], mappings: list[dict[str, str]]) -> None:
     # Merging equality classes is monotone: every step removes distinctions,
-    # so it terminates. The existing values are used, never new code values.
+    # so it terminates. The existing values are used, never new category values.
     edges = [(item["from"], item["to"]) for item in mappings]
     edges += [(item["to"], item["from"]) for item in mappings if item["kind"] == "1:1"]
     changed = True
@@ -54,7 +54,7 @@ def verify(table: pa.Table, profile: dict[str, Any], expected_rows: int) -> None
         if not field.nullable and table.column(field.name).null_count:
             raise ValueError("Cannot satisfy non-nullable column constraint")
     for column in profile["columns"]:
-        if column["role"] == "code":
+        if column["role"] == "category":
             data_type = _value_type(string_to_type(column["type"]))
             allowed = {
                 _from_json(item["value"], data_type)
@@ -65,7 +65,7 @@ def verify(table: pa.Table, profile: dict[str, Any], expected_rows: int) -> None
                 for value in rows[column["name"]]
             ):
                 raise ValueError(
-                    "Generated values are outside approved code domains; review period roles or disable time-series handling"
+                    "Generated values are outside approved category domains; review period roles or disable time-series handling"
                 )
     key = profile.get("primary_key")
     if key:

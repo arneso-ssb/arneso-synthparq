@@ -14,7 +14,7 @@
       "name": "period",
       "type": "string",
       "nullable": false,
-      "role": "code",
+      "role": "category",
       "stats": {
         "null_fraction": 0.0,
         "values": [
@@ -84,7 +84,7 @@
       "name": "series",
       "type": "string",
       "nullable": false,
-      "role": "code",
+      "role": "category",
       "stats": {
         "null_fraction": 0.0,
         "values": [
@@ -104,7 +104,7 @@
       "name": "kind",
       "type": "string",
       "nullable": false,
-      "role": "code",
+      "role": "category",
       "stats": {
         "null_fraction": 0.0,
         "values": [

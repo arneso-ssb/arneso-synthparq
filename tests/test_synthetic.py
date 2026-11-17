@@ -27,6 +27,87 @@ SERIES = {"LOAN_A": "L", "LOAN_B": "L", "DEPOSIT_A": "D"}
 PERIODS = ["202501", "202502", "202503", "202504", "202505", "202506"]
 
 
+@pytest.mark.parametrize("representation", ["compact", "hyphenated", "integer"])
+@pytest.mark.parametrize("explicit", [False, True])
+def test_quarter_end_months_round_trip(
+    tmp_path: Path, representation: str, explicit: bool
+) -> None:
+    periods: list[Any] = ["202412", "202503", "202506", "202509"]
+    if representation == "hyphenated":
+        periods = [f"{p[:4]}-{p[4:]}" for p in periods]
+    elif representation == "integer":
+        periods = [int(p) for p in periods]
+    source = tmp_path / "source.parquet"
+    pq.write_table(
+        pa.table(
+            {
+                "period": periods * 2,
+                "entity": ["A"] * 4 + ["B"] * 4,
+                "amount": [float(i) for i in range(8)],
+            }
+        ),
+        source,
+    )
+    config = _write_config(
+        tmp_path / "config.json",
+        {"period": "category", "entity": "pattern", "amount": "numeric_stats"},
+        k=1,
+        timeseries=(
+            {"period": "period", "series_keys": ["entity"], "values": ["amount"]}
+            if explicit
+            else "auto"
+        ),
+    )
+    profile_file = profile_parquet(source, tmp_path / "profile.json", config)
+    profile = json.loads(profile_file.read_text())
+    assert profile["timeseries"]["frequency"] == "Q"
+    assert profile["timeseries"]["period_format"] == (
+        "YYYY-MM" if representation == "hyphenated" else "YYYYMM"
+    )
+    output = generate_parquet(
+        profile_file, tmp_path / "output.parquet", seed=42, n_rows=9
+    )
+    table = pq.read_table(output)
+    assert table.schema == pq.read_schema(source)
+    assert table.num_rows == 12
+    rows = table.to_pydict()
+    for entity in set(rows["entity"]):
+        assert [
+            p
+            for p, e in zip(rows["period"], rows["entity"], strict=True)
+            if e == entity
+        ] == periods
+
+
+@pytest.mark.parametrize(
+    "periods",
+    [
+        ["202501", "202502", "202503"],
+        ["202503", "202504", "202506"],
+        ["202503"],
+        ["202501", "202503"],
+        ["202403", "202503"],
+        ["202503", "202509"],
+    ],
+)
+def test_monthly_periods_are_not_misclassified(
+    tmp_path: Path, periods: list[str]
+) -> None:
+    source = tmp_path / "source.parquet"
+    pq.write_table(
+        pa.table({"period": periods, "amount": [1.0] * len(periods)}), source
+    )
+    config = _write_config(
+        tmp_path / "config.json",
+        {"period": "schema_only", "amount": "schema_only"},
+        timeseries={"period": "period", "series_keys": [], "values": ["amount"]},
+    )
+    profile = json.loads(
+        profile_parquet(source, tmp_path / "profile.json", config).read_text()
+    )
+    assert profile["timeseries"]["frequency"] == "M"
+
+
 def _timeseries_table() -> pa.Table:
     rows: dict[str, list[Any]] = {
         name: []
@@ -86,11 +167,11 @@ def config(tmp_path: Path) -> Path:
     return _write_config(
         tmp_path / "export.json",
         {
-            "periode": "code",
+            "periode": "category",
             "selskap": "pattern",
             "selskapsnavn": "pattern",
-            "Serienavn": "code",
-            "kind": "code",
+            "Serienavn": "category",
+            "kind": "category",
             "rente": "numeric_stats",
             "belop": "numeric_stats",
         },
@@ -145,6 +226,8 @@ def test_init_config_lists_all_columns_as_schema_only(
     config_file = init_config(source, tmp_path / "export.json")
 
     config = json.loads(config_file.read_text(encoding="utf-8"))
+    assert config["force_category"] == []
+    assert "force_code" not in config
     assert config["columns"] == dict.fromkeys(
         _timeseries_table().column_names, "schema_only"
     )
@@ -174,22 +257,31 @@ def test_profile_never_exports_raw_values_of_pattern_columns(
         assert name not in text
 
 
-def test_exported_codes_occur_at_least_k_times(tmp_path: Path) -> None:
-    table = pa.table({"code": ["common"] * 6 + ["rare"] * 4 + ["other"] * 10})
-    source = tmp_path / "codes.parquet"
+@pytest.mark.parametrize("forced", [False, True])
+def test_exported_categories_occur_at_least_k_times(
+    tmp_path: Path, forced: bool
+) -> None:
+    table = pa.table({"status": ["common"] * 6 + ["rare"] * 4 + ["boundary"] * 5})
+    source = tmp_path / "categories.parquet"
     pq.write_table(table, source)
-    config = _write_config(tmp_path / "export.json", {"code": "code"}, k=5)
-
-    profile = json.loads(
-        profile_parquet(source, tmp_path / "profile.json", config).read_text(
-            encoding="utf-8"
-        )
+    config = _write_config(
+        tmp_path / "export.json",
+        {"status": "category"},
+        k=5,
+        force_category=["status"] if forced else [],
     )
 
-    values = table.column("code").to_pylist()
+    profile_file = profile_parquet(source, tmp_path / "profile.json", config)
+    profile = json.loads(profile_file.read_text(encoding="utf-8"))
+
+    assert profile["columns"][0]["role"] == "category"
+    values = table.column("status").to_pylist()
     exported = [v["value"] for v in profile["columns"][0]["stats"]["values"]]
-    assert set(exported) == {"common", "other"}
+    assert set(exported) == {"common", "boundary"}
     assert all(values.count(value) >= 5 for value in exported)
+    assert profile["columns"][0]["stats"]["suppressed_fraction"] == pytest.approx(0.267)
+    output = generate_parquet(profile_file, tmp_path / "out.parquet", seed=42)
+    assert set(pq.read_table(output).column("status").to_pylist()) <= set(exported)
 
 
 def test_small_histogram_bins_are_merged(tmp_path: Path) -> None:
@@ -209,20 +301,22 @@ def test_small_histogram_bins_are_merged(tmp_path: Path) -> None:
 
 
 def test_config_with_unknown_column_fails(source: Path, tmp_path: Path) -> None:
-    config = _write_config(tmp_path / "export.json", {"no_such_column": "code"})
+    config = _write_config(tmp_path / "export.json", {"no_such_column": "category"})
 
     with pytest.raises(ValueError, match="no_such_column"):
         profile_parquet(source, tmp_path / "profile.json", config)
 
 
 def test_config_with_missing_column_warns(source: Path, tmp_path: Path) -> None:
-    config = _write_config(tmp_path / "export.json", {"periode": "code"})
+    config = _write_config(tmp_path / "export.json", {"periode": "category"})
 
     with pytest.warns(UserWarning, match="selskap"):
         profile_parquet(source, tmp_path / "profile.json", config)
 
 
-def test_id_like_code_column_fails_unless_forced(source: Path, tmp_path: Path) -> None:
+def test_id_like_category_column_fails_unless_forced(
+    source: Path, tmp_path: Path
+) -> None:
     table = pa.table({"id": [f"{i:04d}" for i in range(20)]})
     source = tmp_path / "ids.parquet"
     pq.write_table(table, source)
@@ -231,13 +325,15 @@ def test_id_like_code_column_fails_unless_forced(source: Path, tmp_path: Path) -
         profile_parquet(
             source,
             tmp_path / "profile.json",
-            _write_config(tmp_path / "export.json", {"id": "code"}, k=1),
+            _write_config(tmp_path / "export.json", {"id": "category"}, k=1),
         )
 
     profile_parquet(
         source,
         tmp_path / "profile.json",
-        _write_config(tmp_path / "forced.json", {"id": "code"}, k=1, force_code=["id"]),
+        _write_config(
+            tmp_path / "forced.json", {"id": "category"}, k=1, force_category=["id"]
+        ),
     )
 
 
