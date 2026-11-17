@@ -49,11 +49,11 @@ def main() -> None:
     config = init_config(source, directory / "export.json", overwrite=True)
     settings = json.loads(config.read_text(encoding="utf-8"))
     settings["columns"] = {
-        "period": "code",
+        "period": "category",
         "entity": "pattern",
         "entity_name": "pattern",
-        "series": "code",
-        "kind": "code",
+        "series": "category",
+        "kind": "category",
         "amount": "numeric_stats",
     }
     config.write_text(json.dumps(settings, indent=2) + "\n", encoding="utf-8")

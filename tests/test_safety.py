@@ -68,7 +68,9 @@ def test_cli_errors_do_not_print_tracebacks(tmp_path: Path) -> None:
         {"significant_digits": 20},
         {"max_key_size": 6},
         {"mapping_max_distinct": -1},
-        {"force_code": "id"},
+        {"force_category": "id"},
+        {"force_code": []},
+        {"columns": {"id": "code"}},
         {"columns": []},
         {"timeseries": {"period": "id"}},
         {"typo": True},
@@ -122,7 +124,7 @@ def test_impossible_key_size_never_returns_fewer_rows(tmp_path: Path) -> None:
     pq.write_table(pa.table({"id": ["a", "b", "c"]}), source)
     config = tmp_path / "export.json"
     config.write_text(
-        json.dumps({"k": 1, "force_code": ["id"], "columns": {"id": "code"}})
+        json.dumps({"k": 1, "force_category": ["id"], "columns": {"id": "category"}})
     )
     profile = profile_parquet(source, tmp_path / "profile.json", config)
     output = tmp_path / "output.parquet"
@@ -159,14 +161,39 @@ def test_overlapping_dependencies_are_all_preserved(tmp_path: Path) -> None:
             assert len(pairs) == len({row[b] for row in rows})
 
 
-def test_empty_code_allow_list_cannot_invent_values(tmp_path: Path) -> None:
+def test_empty_category_allow_list_cannot_invent_values(tmp_path: Path) -> None:
     source = tmp_path / "source.parquet"
     pq.write_table(pa.table({"code": ["rare"] * 3}), source)
     config = tmp_path / "export.json"
-    config.write_text(json.dumps({"columns": {"code": "code"}}))
+    config.write_text(json.dumps({"columns": {"code": "category"}}))
     profile = profile_parquet(source, tmp_path / "profile.json", config)
-    with pytest.raises(ValueError, match=r"code|approved"):
+    with pytest.raises(ValueError, match=r"category|approved"):
         generate_parquet(profile, tmp_path / "output.parquet")
+
+
+def test_old_code_role_is_rejected_in_profiles(tmp_path: Path) -> None:
+    path = tmp_path / "profile.json"
+    path.write_text(
+        json.dumps(
+            {
+                "format_version": 1,
+                "row_count": 5,
+                "columns": [
+                    {
+                        "name": "status",
+                        "type": "string",
+                        "nullable": False,
+                        "role": "code",
+                        "stats": {"values": [{"value": "active", "count": 5}]},
+                    }
+                ],
+            }
+        )
+    )
+    output = tmp_path / "output.parquet"
+    with pytest.raises(ValueError, match="role"):
+        generate_parquet(path, output)
+    assert not output.exists()
 
 
 @pytest.mark.parametrize(
@@ -273,7 +300,7 @@ def test_existing_source_cannot_be_overwritten(tmp_path: Path) -> None:
     assert source.read_bytes() == original
 
 
-def test_code_diagnostics_do_not_echo_source_values(tmp_path: Path) -> None:
+def test_profile_diagnostics_do_not_echo_source_values(tmp_path: Path) -> None:
     source = tmp_path / "source.parquet"
     secret = "PRIVATE-EXAMPLE-VALUE"
     pq.write_table(pa.table({"amount": [secret]}), source)
@@ -321,14 +348,14 @@ def test_mapping_direction_does_not_depend_on_column_order(
     assert profile["mappings"] == [{"from": "child", "to": "parent", "kind": "N:1"}]
 
 
-def test_invalid_code_values_produce_safe_cli_error(tmp_path: Path) -> None:
+def test_invalid_category_values_produce_safe_cli_error(tmp_path: Path) -> None:
     fixture = json.loads(
         (Path(__file__).parent / "fixtures/profile-v1.json").read_text()
     )
     fixture["primary_key"] = None
     fixture["columns"][0].update(
         {
-            "role": "code",
+            "role": "category",
             "stats": {"values": [{"value": "SECRET-INVALID-INTEGER", "count": 6}]},
         }
     )
@@ -360,7 +387,7 @@ def test_subdaily_timestamps_are_not_silently_truncated(tmp_path: Path) -> None:
 @pytest.mark.parametrize(
     "periods", [["202501", "202503"], ["202503", "202506", "202512"]]
 )
-def test_regular_periods_cannot_invent_unapproved_codes(
+def test_regular_periods_cannot_invent_unapproved_categories(
     tmp_path: Path, periods: list[str]
 ) -> None:
     source = tmp_path / "source.parquet"
@@ -372,8 +399,8 @@ def test_regular_periods_cannot_invent_unapproved_codes(
         json.dumps(
             {
                 "k": 1,
-                "force_code": ["period"],
-                "columns": {"period": "code", "amount": "schema_only"},
+                "force_category": ["period"],
+                "columns": {"period": "category", "amount": "schema_only"},
             }
         )
     )

@@ -3,6 +3,14 @@
 Profiles are UTF-8 JSON objects, format version **1**. They contain no encoded Arrow schema
 or arbitrary source metadata. Unsupported types fail instead of being guessed.
 
+For every field in both configuration and profile files, nested statistics, scalar
+encodings and independent/AI generation rules, read the [JSON reference](json-reference.md).
+
+**Prototype rename:** the role is now `category` and the configuration setting is
+`force_category`. The former names `code` and `force_code` are rejected, without
+changing `format_version: 1`. Regenerate older files or edit these tokens explicitly;
+this prototype revision does not provide compatibility aliases.
+
 | Field | Meaning |
 | --- | --- |
 | `format_version` | Version of the profile contract, independent of tool version |
@@ -47,7 +55,8 @@ are not reconstructed.
 ## Evolution policy
 
 - Use semantic versioning for the tool; document changes in `CHANGELOG.md`.
-- Preserve supported version-1 readers across compatible releases.
+- Preserve supported version-1 readers across compatible releases; the explicit
+  prototype rename above is a breaking pre-release revision, not a compatible release.
 - Introduce a new profile version or explicit required feature for incompatible semantics.
 - Do not infer compatibility by comparing producer-version strings.
 - Reproducibility requires the same tool/dependency environment, not just the same format version.

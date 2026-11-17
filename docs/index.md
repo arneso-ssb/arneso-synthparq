@@ -12,6 +12,8 @@ every profile before transfer. Dataset-level metadata is exported even when all 
 roles are `schema_only`; automatic time-series metadata can include period start/end values.
 
 Start with the [operator guide](user-guide.md), then consult the [CLI/API reference](reference.md).
+For JSON field meanings or independent/AI generation from a profile, read the
+[JSON reference and generation guide](json-reference.md).
 
 ```{toctree}
 :maxdepth: 1
@@ -19,6 +21,8 @@ Start with the [operator guide](user-guide.md), then consult the [CLI/API refere
 user-guide
 reference
 profile-format
+json-reference
+glossary
 releasing
 verification
 contributing

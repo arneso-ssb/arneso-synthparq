@@ -26,7 +26,7 @@ The 80 tests cover the public API/CLI, schema-only template creation, column rol
 automatic dataset-level metadata (including the deliberate period-column exception),
 mapping direction and overlapping dependencies, key capacity, Decimal boundaries,
 timezone preservation, deterministic generation, input validation, protected/atomic outputs,
-code-domain enforcement and runtime operation without network connections.
+category-domain enforcement and runtime operation without network connections.
 
 The fixed `tests/fixtures/profile-v1.json` compatibility fixture has a different producer
 version from the current tool. Compatibility is determined by profile format, not producer version.
